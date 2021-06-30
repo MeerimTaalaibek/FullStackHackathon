@@ -8,11 +8,6 @@ class MovieImageInline(admin.TabularInline):
     min_num = 1
 
 
-# @admin.register(Movie)
-# class MovieAdmin(admin.ModelAdmin):
-#     inlines = [MovieImageInline, ]
-
-
 admin.site.register(Category)
 admin.site.register(Actor)
 admin.site.register(Genre)

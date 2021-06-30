@@ -112,5 +112,5 @@ class FavoritesDeleteView(generics.DestroyAPIView):
 class ReviewViewSet( viewsets.ModelViewSet):
     queryset = Reviews.objects.all()
     serializer_class = ReviewSerializer
-    # pagination_class = PaginationReview
+
 
