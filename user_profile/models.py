@@ -1,11 +1,11 @@
 from django.contrib.auth import get_user_model
 from django.db import models
 
-CustomUser = get_user_model()
+User = get_user_model()
 
 
 class ProducerProfile(models.Model):
-    name = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='producer_profile')
+    name = models.OneToOneField(User, on_delete=models.CASCADE, related_name='producer_profile')
     email = models.EmailField(max_length=255, unique=True)
     country = models.CharField(max_length=255, blank=True)
 
@@ -19,7 +19,7 @@ class ProducerProfile(models.Model):
 
 
 class CustomerProfile(models.Model):
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='customer_prof')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='customer_prof')
     email = models.EmailField(max_length=255, unique=True)
     country = models.CharField(max_length=255, blank=True)
 

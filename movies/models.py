@@ -50,6 +50,7 @@ class Genre(models.Model):
 
 class Movie(models.Model):
     """Films"""
+    category = models.ForeignKey(Category, verbose_name='Категория', on_delete=models.SET_NULL, null=True)
     title = models.CharField('Название', max_length=100)
     description = models.TextField('Описание')
     poster = models.ImageField('Постер', upload_to='movies/')
@@ -61,12 +62,12 @@ class Movie(models.Model):
     world_premiere = models.CharField('Премьера в мире', max_length=15, default=date.today)
     budget = models.PositiveIntegerField('Бюджет', default=0, help_text='указать сумму в долларах')
     fees_in_world = models.PositiveIntegerField('Сборы в мире', default=0, help_text='указать сумму в долларах')
-    category = models.ForeignKey(Category, verbose_name='Категория', on_delete=models.SET_NULL, null=True)
     url = models.SlugField(max_length=100, unique=True)
-    # draft = models.BooleanField('Черновики', default=False)
+    price = models.DecimalField(max_digits=5, decimal_places=3, default=False)
+    draft = models.BooleanField('Черновики', default=False)
 
     def __str__(self):
-        return self.title
+        return f"{self.category}-->{self.title}"
 
     class Meta:
         verbose_name = 'Фильм'
@@ -98,8 +99,6 @@ class Reviews(models.Model):
 
     def __str__(self):
         return f'{self.name} - {self.movie}'
-    # def __str__(self):
-    #     return f'{self.name}--{self.email}--{self.movie}--{self.text}'
 
     class Meta:
         verbose_name = 'Отзыв'

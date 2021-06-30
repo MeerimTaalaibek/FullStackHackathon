@@ -19,21 +19,27 @@ from django.urls import path, re_path, include
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import routers, permissions
+from rest_framework.routers import DefaultRouter
+from django.conf.urls.static import static
+from django.conf import settings
+
+from movies.views import MovieListView
 
 schema_view = get_schema_view(
     info=openapi.Info(
         title='MyCinematica',
-        default_version='v1',
-        description='this is a final movie project',
+        default_version='V1',
+        description='This is MyCinematica. Enjoy!!!',
         terms_of_service='http://www.google.com/policies/terms/',
         contact=openapi.Contact(email='test@gmail.com'),
-        license=openapi.License(name='BSD License')
+        license=openapi.License(name='SUPER License')
     ),
     public=True,
     permission_classes=(permissions.AllowAny, ),
 )
 
 router = routers.SimpleRouter()
+# router.register('movies', MovieListView)
 
 urlpatterns = [
     re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
@@ -45,3 +51,14 @@ urlpatterns = [
     path('api/v1/', include('movies.urls')),
     path('api/v1/', include(router.urls)),
 ]
+
+
+
+
+
+urlpatterns += static(
+    settings.STATIC_URL, document_root=settings.STATIC_ROOT
+)
+urlpatterns += static(
+     settings.MEDIA_URL, document_root=settings.MEDIA_ROOT
+)

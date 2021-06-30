@@ -1,31 +1,26 @@
-from django.contrib.auth.decorators import login_required
-from django.db.migrations import serializer
-from django.shortcuts import render
-from rest_framework import generics, viewsets, status
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import AllowAny
-# from rest_framework.views import APIView
-from .models import *
-from .serializer import CategorySerializer, MovieSerializer, ReviewSerializer, FavoriteSerializer, BasketSerializer, LikeSerializer
-from rest_framework.response import Response
-from rest_framework.decorators import action
+
 from django.db.models import Q
-from .permissions import *
-from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import generics, viewsets
+from rest_framework import permissions
+from movies.permissions import IsOwnerOrReadOnly
+from movies import serializer
+from movies.models import *
+
+from django_filters import rest_framework as filters
+from rest_framework.pagination import PageNumberPagination
+
+from movies.serializer import CategorySerializer, ReviewSerializer
 
 
-class PaginationMovie(PageNumberPagination):
+class StandardResultsSetPagination(PageNumberPagination):
     page_size = 2
-
-class PaginationReview(PageNumberPagination):
-    page_size = 2
-
-
+    page_size_query_param = 'page_size'
+    max_page_size = 10
 
 class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [AllowAny, ]
+    # permission_classes = [AllowAny, ]
 
 class CategoryDetailView(generics.RetrieveAPIView):
     queryset = Category.objects.all()
@@ -33,134 +28,89 @@ class CategoryDetailView(generics.RetrieveAPIView):
 
 
 
-#
-class PermissionMixinMovie:
-    def get_permissions(self):
-        if self.action == 'create':
-            permissions = [IsProducerPermission, ]
-        elif self.action in ['update', 'partial_update', 'delete']:
-            permissions = [IsAuthorMoviePermission, ]
-        else:
-            permissions = [AllowAny, ]
-        return [perm() for perm in permissions]
-
-    def get_serializer_context(self):
-        return {'request': self.request, 'action': self.action}
-
-class PermissionMixinReview:
-    def get_permissions(self):
-        if self.action == 'create':
-            permissions = [IsCustomerPermission, ]
-        elif self.action in ['update', 'partial_update', 'delete']:
-            permissions = [IsAuthorReviewPermission, ]
-        else:
-            permissions = [AllowAny, ]
-        return [perm() for perm in permissions]
-
-    def get_serializer_context(self):
-        return {'request': self.request, 'action': self.action}
-
-
-
-class MovieViewSet(viewsets.ModelViewSet):
+class MovieListView(generics.ListAPIView):
     queryset = Movie.objects.all()
-    serializer_class = MovieSerializer
-    pagination_class = PaginationMovie
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['category', ]
-
-    # @login_required
-    @action(detail=True, methods=['post'])
-    def like(self, request, pk=None):
-        movie = self.get_object()
-        obj, created = Like.objects.get_or_create(user=request.user.profile_customer, movie=movie)
-        if not created:
-            obj.like = not obj.like
-            obj.save()
-        liked_or_disliked = 'liked' if obj.like else 'disliked'
-        return Response('Successfully {} product'.format(liked_or_disliked), status=status.HTTP_200_OK)
-
-    @action(detail=True, methods=['post'])
-    def favorite(self, request, pk=None):
-        movie = self.get_object()
-        obj, created = Favorite.objects.get_or_create(user=request.user.profile_customer, movie=movie)
-        if not created:
-            obj.favorite = not obj.favorite
-            obj.save()
-        added_removed = 'added' if obj.favorite else 'removed'
-        return Response('Successfully {} favorite'.format(added_removed), status=status.HTTP_200_OK)
-
-
-    @action(detail=True, methods=['post'])
-    def basket(self, request, pk=None):
-        movie = self.get_object()
-        obj, created = Basket.objects.get_or_create(user=request.user.profile_customer, movie=movie)
-        if not created:
-            obj.favorite = not obj.favorite
-            obj.save()
-        added_removed = 'added' if obj.favorite else 'removed'
-        return Response('Successfully {} basket'.format(added_removed), status=status.HTTP_200_OK)
-
-
-
-
-    @action(detail=False, methods=['get'])
-    def search(self, request, pk=None):
-        q = request.query_params.get('q', '')
-        queryset = self.get_queryset()
-        print(queryset)
-        queryset = queryset.filter(Q(title__icontains=q) | Q(id__icontains=q))
-        serializer = MovieSerializer(queryset, many=True, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-#
-# class ReviewViewSet(PermissionMixinReview, viewsets.ModelViewSet):
-#     queryset = Reviews.objects.all()
-#     serializer_class = ReviewSerializer
-#     pagination_class = PaginationReview
-
-
-class LikeCreateListView(generics.ListAPIView):
-    queryset = Like.objects.all()
-    serializer_class = LikeSerializer
+    serializer_class = serializer.MovieSerializer
+    filter_backends = (filters.DjangoFilterBackend, )
+    filterset_fields = ('title', 'price', 'country')
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        qs = self.request.user.profile_customer
-        queryset = Favorite.objects.filter(user=qs, like=True)
+        queryset = super().get_queryset()
+        search = self.request.query_params.get('search', '')
+        if search:
+            queryset = queryset.filter(Q(title__icontains=search) | Q(id__icontains=search) | Q(price__icontains=search))
         return queryset
 
-class FavoriteListView(generics.ListAPIView):
-    queryset = Favorite.objects.all()
-    serializer_class = FavoriteSerializer
+    def dispatch(self, request, *args, **kwargs):
+        response = super().dispatch(request, *args, **kwargs)
+        return response
 
-    def get_queryset(self):
-        qs = self.request.user.profile_customer
-        queryset = Favorite.objects.filter(user=qs, favorite=True)
-        return queryset
+class MovieDetailView(generics.RetrieveAPIView):
+    queryset = Movie.objects.all()
+    serializer_class = serializer.MovieSerializer
+
 
 class BasketListView(generics.ListAPIView):
     queryset = Basket.objects.all()
-    serializer_class = BasketSerializer
-
-    def get_queryset(self):
-        qs = self.request.user.profile_customer
-        queryset = Basket.objects.filter(user=qs, basket=True)
-        return queryset
+    serializer_class = serializer.BasketSerializer
 
 
+class BasketCreateView(generics.CreateAPIView):
+    serializer_class = serializer.BasketSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class BasketDeleteView(generics.DestroyAPIView):
+    queryset = Basket.objects.all()
+    serializer_class = serializer.BasketSerializer
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly)
+
+
+class LikeListView(generics.ListAPIView):
+    queryset = Like.objects.all()
+    serializer_class = serializer.LikeSerializer
+
+
+class LikeCreateView(generics.CreateAPIView):
+    serializer_class = serializer.LikeSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class LikeDeleteView(generics.DestroyAPIView):
+    queryset = Like.objects.all()
+    serializer_class = serializer.LikeSerializer
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly)
+
+
+class FavoritesListView(generics.ListAPIView):
+    queryset = Favorite.objects.all()
+    serializer_class = serializer.FavoritesSerializer
+
+
+class FavoritesCreateView(generics.CreateAPIView):
+    serializer_class = serializer.FavoritesSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class FavoritesDeleteView(generics.DestroyAPIView):
+    queryset = Favorite.objects.all()
+    serializer_class = serializer.FavoritesSerializer
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+class ReviewViewSet( viewsets.ModelViewSet):
+    queryset = Reviews.objects.all()
+    serializer_class = ReviewSerializer
+    # pagination_class = PaginationReview
 
